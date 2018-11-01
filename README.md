@@ -1,75 +1,95 @@
-# Ethereum Web3 LoopBack connector :+1:
+# loopback-connector-web3
 
-The web3 connector is still early alpha - DO NOT USE IN PRODUCTION. :shipit:
+This module is an [Ethereum Web3](https://github.com/ethereum/web3.js/tree/1.0) connector for [LoopBack](https://loopback.io).
 
 ## Configuration
 
-datasources.json :
+The connector now supports two modes:
 
-```
-...
-"ethereum": {
-    "name": "ethereum",
-    "connector": "web3",
-    "url":<optional>
-  },
-...
-```
+### Refer to an existing solidity project
 
-If you do NOT specify a RPC URL, the connector will assume
-"http://localhost:8545". Don't want to run your own node? Check out
-[Infura](https://www.infura.io/)!
+The datasource configures the `solidityProject` property to point to an existing solidity project. The connector automatically builds models from smart contracts discovered in the solidity project.
 
-Now just create a model that represents your Solidity based smart contract, for
-example
+**server/datasources.json**:
 
-```
+```json
 {
-  "name": "Contract",
-  "plural": "contracts",
+  "web3": {
+    "url": "http://localhost:8545",
+    "name": "web3",
+    "connector": "loopback-connector-web3",
+    "solidityProject": "../channel-contracts"
+  },
+  ...
+}
+```
+
+### Define models with `ethereum` extensions
+
+We can use `lb model` to create models representing Ethereum contracts.
+
+**common/models/global-click.json**:
+
+```json
+{
+  "name": "GlobalClick",
   "base": "Model",
   "idInjection": true,
   "options": {
-    "validateUpsert": true
+    "validateUpsert": true,
+    "ethereum": {
+      "contract": {}
+    }
   },
   "properties": {},
   "validations": [],
   "relations": {},
   "acls": [],
-  "methods": {},
-  "ethereum":{
-    "contract":{
-      "sol": "server/SimpleStorage.sol",
-      "name":"SimpleStorage"
-    },
-    "gas": 3000000
-  }
+  "methods": {}
 }
 ```
 
-where "SimpleStorage" (above) is the name of the constructor for the smart
-contract. The connector will compile the contract and doing a `POST` at the
-model base route will deploy the contract and return the contract address.
+**common/models/global-click.js**:
 
-## Example :point_left:
+```js
+'use strict';
+
+module.exports = function(GlobalClick) {
+  // Programmatically configures the ethereum contract JSON interface
+  const CONTRACT = require('channel-contracts').contracts.Demo1;
+  GlobalClick.settings.ethereum.contract = CONTRACT;
+};
+```
+
+**server/model-config.json**
+
+```json
+{
+  "GlobalClick": {
+    "dataSource": "web3",
+    "public": true
+  },
+  ...
+}
+```
+
+## Run migration of smart contracts
+
+The Web3 connector is able to migrate corresponding smart contracts if the datasource
+refers to a solidity project. For example,
+
+**server/boot/migrate.js**
+
+```js
+'use strict';
+
+module.exports = function(app, cb) {
+  const ds = app.dataSources.web3;
+  ds.on('connected', () => ds.automigrate(cb));
+};
+```
+
+## Example
 
 For an example to get you up and running, checkout the
-[web3 demo](https://github.com/AdChain/web3-demo).
-
-## Dapps :raised_hands:
-
-- [Tic-Tac-Toe](https://github.com/AdChain/tictactoe-loopback)
-- Vidbit (private beta, tweet me to get on the list
-  [@jamesyoung](https://twitter.com/jamesyoung/))
-
-## The future :rocket:
-
-- [Metamask](https://metamask.io/)
-- [uPort](https://www.uport.me/)
-- [Infura](https://www.infura.io/)
-
-## Keep in touch :wave::wave::wave:
-
-If you are building a decentralized application using the web3 connector, tweet
-me : [@jamesyoung](https://twitter.com/jamesyoung/) and I'll add you to the list
-of dapps.
+[statechannels demo](https://github.com/LunchBadger/statechannels/tree/master/packages/sc-demo-app).
